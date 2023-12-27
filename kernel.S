@@ -42,3 +42,23 @@ noop_handler:
 msg2:
 	.asciz "\nTest OK\n"
 msg2_end:
+
+
+	// Global Descriptor Table
+	.section .rodata
+	.align	4
+gdt64:
+	.quad	0 // zero entry
+
+gdt64_code_entry:
+	.set	gdt64_code_seg, gdt64_code_entry - gdt64
+	.quad	(1<<44) | (1<<47) | (1<<41) | (1<<43) | (1<<53) // code segment
+
+gdt64_data_entry:
+	.set	gdt64_data_seg, gdt64_data_entry - gdt64
+	.quad	(1<<44) | (1<<47) | (1<<41) // data segment
+
+gdt64_pointer:
+	.set	gdt64_limit, gdt64_pointer - gdt64 - 1
+	.word	gdt64_limit
+	.quad	gdt64
