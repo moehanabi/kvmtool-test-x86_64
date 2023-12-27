@@ -10,7 +10,7 @@ $(BIN): $(ELF)
 	objcopy -O binary $< $@
 
 $(ELF): $(OBJ)
-	ld -Ttext=0x00 -nostdlib -static $< -o $@
+	ld -T linker.ld -nostdlib -static $< -o $@
 
 %.o: %.S
 	gcc -nostdinc -c $< -o $@
