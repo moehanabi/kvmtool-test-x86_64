@@ -13,7 +13,7 @@ $(ELF): $(OBJ)
 	ld -T linker.ld -nostdlib -static $< -o $@
 
 %.o: %.S
-	gcc -nostdinc -c $< -o $@
+	gcc -nostdinc -Iinclude -c $< -o $@
 
 clean:
 	rm -f $(BIN) $(ELF) $(OBJ)
