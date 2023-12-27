@@ -3,7 +3,7 @@ CFLAGS := -nostdinc -Iinclude -c
 NAME    := kernel
 BIN     := $(NAME).bin
 ELF     := $(NAME).elf
-objects := $(patsubst %.c, %.o, $(wildcard *.c)) kernel.o
+objects := $(patsubst %.c, %.o, $(wildcard *.c)) boot.o
 
 all: $(BIN)
 
