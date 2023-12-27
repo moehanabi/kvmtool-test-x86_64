@@ -7,7 +7,7 @@
 #define TIMER_DIV(x)	((TIMER_FREQ+(x)/2)/(x))
 
 	.code16gcc
-	.text
+	.section .text.entry
 	.globl	_start
 	.type	_start, @function
 _start:
@@ -45,6 +45,22 @@ protected_mode:
 	movl	%cr0, %eax
 	orl	$CR0_PE, %eax
 	movl	%eax, %cr0
+
+	ljmp	$(SEG_KCODE<<3), $start32
+.code32	# Tell assembler to generate 32-bit code now.
+start32:
+	# Set up the protected-mode data segment registers
+	movw	$(SEG_KDATA<<3), %ax	# Our data segment selector
+	movw	%ax, %ds				# -> DS: Data Segment
+	movw	%ax, %es				# -> ES: Extra Segment
+	movw	%ax, %ss				# -> SS: Stack Segment
+	movw	$0, %ax					# Zero segments not ready for use
+	movw	%ax, %fs				# -> FS
+	movw	%ax, %gs				# -> GS
+
+	# Set up the stack pointer and call into C.
+	movl	$_start, %esp
+	call	main
 
 test_ok:
 	mov	$0x3f8,%dx

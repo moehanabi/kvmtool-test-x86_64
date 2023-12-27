@@ -1,20 +1,25 @@
-NAME	:= kernel
+CFLAGS := -nostdinc -Iinclude -c
 
-BIN	:= $(NAME).bin
-ELF	:= $(NAME).elf
-OBJ	:= $(NAME).o
+NAME    := kernel
+BIN     := $(NAME).bin
+ELF     := $(NAME).elf
+objects := $(patsubst %.c, %.o, $(wildcard *.c)) kernel.o
 
 all: $(BIN)
 
 $(BIN): $(ELF)
 	objcopy -O binary $< $@
 
-$(ELF): $(OBJ)
-	ld -T linker.ld -nostdlib -static $< -o $@
+$(ELF): $(objects)
+	ld -T linker.ld -nostdlib -static $(objects) -o $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) $< -o $@
 
 %.o: %.S
-	gcc -nostdinc -Iinclude -c $< -o $@
+	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm -f $(BIN) $(ELF) $(OBJ)
+	rm -f $(BIN) $(ELF) $(objects)
+
 .PHONY: clean

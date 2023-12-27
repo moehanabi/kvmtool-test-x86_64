@@ -6,6 +6,7 @@ SECTIONS {
 
   /* Text */
   .text : {
+    *(.text.entry)
     *(.text)
   }
 
