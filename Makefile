@@ -1,4 +1,4 @@
-CFLAGS := -nostdinc -fno-builtin -Iinclude -c
+CFLAGS := -nostdinc -fno-builtin -mno-sse -Iinclude -c
 
 NAME    := kernel
 BIN     := $(NAME).bin

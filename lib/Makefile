@@ -1,4 +1,4 @@
-CFLAGS := -nostdinc -fno-builtin -I ../include -c
+CFLAGS := -nostdinc -fno-builtin -mno-sse -I ../include -c
 objects := $(patsubst %.c, %.o, $(wildcard *.c))
 
 vpath %.h ../include
