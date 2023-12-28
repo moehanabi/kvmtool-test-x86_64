@@ -57,6 +57,7 @@ start32:
 	movw	$0, %ax					# Zero segments not ready for use
 	movw	%ax, %fs				# -> FS
 	movw	%ax, %gs				# -> GS
+	call set_up_SSE
 
 	# Set up the stack pointer and call into C.
 	movl	$_start, %esp
@@ -68,6 +69,7 @@ test_ok:
 	mov	$(msg2_end-msg2), %cx
 	cs rep/outsb
 
+reboot:
 	/* Reboot by using the i8042 reboot line */
 	mov	$0xfe, %al
 	outb	%al, $0x64
@@ -83,6 +85,24 @@ msg2:
 	.asciz "\nTest OK\n"
 msg2_end:
 
+// Check for SSE and enable it. If it's not supported, reboot
+set_up_SSE:
+	// Check for SSE
+	movl	$0x1, %eax
+	cpuid
+	testl	$1<<25, %edx
+	jz	reboot
+
+	// Enable SSE
+	movl	%cr0, %eax
+	andw	$0xFFFB, %ax		// Clear coprocessor emulation CR0.EM
+	orw	$0x2, %ax		// Set coprocessor monitoring CR0.MP
+	movl	%eax, %cr0
+	movl	%cr4, %eax
+	orw	$3 << 9, %ax		// set CR4.OSFXSR and CR4.OSXMMEXCPT
+					//   at the same time
+	movl	%eax, %cr4
+	ret
 
 	// Global Descriptor Table
 	.section .rodata
