@@ -1,5 +1,6 @@
 #include <asm.h>
 #include <mmu.h>
+#include <init.h>
 #define IO_PIC		0x20
 #define IRQ_OFFSET	32
 #define IO_PIT		0x40
@@ -11,94 +12,22 @@
 	.globl	_start
 	.type	_start, @function
 _start:
-/*
- * fill up noop handlers
- */
-	xorw	%ax, %ax
-	xorw	%di, %di
-	movw	%ax, %es
-	movw	$256, %cx
-fill_noop_idt:
-	movw	$noop_handler, %es:(%di)
-	movw	%cs, %es:2(%di)
-	add	$4, %di
-	loop	fill_noop_idt
+	FILL_NOOP_IDT
+	PRINT real_mode_msg, real_mode_msg_end
+	SETA20
+	PROTECT_MODE
 
-real_mode_ok:
-	mov	$0x3f8,%dx
-	cs lea	real_mode_msg, %si
-	mov	$(real_mode_msg_end-real_mode_msg), %cx
-	cs rep/outsb
-
-seta20.1:
-	inb	$0x64,%al
-	testb	$0x2,%al
-	jnz	seta20.1 
-
-	movb	$0xd1,%al
-	outb	%al,$0x64
-
-seta20.2:
-	inb	$0x64,%al
-	testb	$0x2,%al
-	jnz	seta20.2
-
-	movb	$0xdf,%al
-	outb	%al,$0x60
-
-protected_mode:
-	lgdt	gdtdesc32
-	movl	%cr0, %eax
-	orl	$CR0_PE, %eax
-	movl	%eax, %cr0
-
-	ljmp	$(SEG_KCODE<<3), $start32
 .code32	# Tell assembler to generate 32-bit code now.
-start32:
-	# Set up the protected-mode data segment registers
-	movw	$(SEG_KDATA<<3), %ax	# Our data segment selector
-	movw	%ax, %ds				# -> DS: Data Segment
-	movw	%ax, %es				# -> ES: Extra Segment
-	movw	%ax, %ss				# -> SS: Stack Segment
-	movw	$0, %ax					# Zero segments not ready for use
-	movw	%ax, %fs				# -> FS
-	movw	%ax, %gs				# -> GS
-	call set_up_SSE
-
+	START32
+	SETUP_SSE
 	# Set up the stack pointer and call into C.
 	movl	$_start, %esp
 	call	main
-
-reboot:
-	/* Reboot by using the i8042 reboot line */
-	mov	$0xfe, %al
-	outb	%al, $0x64
-
-loop:
-	1:
-	jmp	1b
+	REBOOT
+	JUST_LOOP
 
 noop_handler:
 	iretw
-
-// Check for SSE and enable it. If it's not supported, reboot
-set_up_SSE:
-	// Check for SSE
-	movl	$0x1, %eax
-	cpuid
-	testl	$1<<25, %edx
-	jz	reboot
-
-	// Enable SSE
-	movl	%cr0, %eax
-	andw	$0xFFFB, %ax		// Clear coprocessor emulation CR0.EM
-	orw	$0x2, %ax		// Set coprocessor monitoring CR0.MP
-	movl	%eax, %cr0
-	movl	%cr4, %eax
-	orw	$3 << 9, %ax		// set CR4.OSFXSR and CR4.OSXMMEXCPT
-					//   at the same time
-	movl	%eax, %cr4
-	ret
 
 	.section .rodata
 	.align	4
