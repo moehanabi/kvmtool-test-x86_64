@@ -1,5 +1,5 @@
-#include "asm.h"
-#include "mmu.h"
+#include <asm.h>
+#include <mmu.h>
 #define IO_PIC		0x20
 #define IRQ_OFFSET	32
 #define IO_PIT		0x40
