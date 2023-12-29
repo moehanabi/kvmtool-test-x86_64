@@ -3,28 +3,15 @@ CFLAGS := -nostdinc -fno-builtin -Iinclude -c
 NAME    := kernel
 BIN     := $(NAME).bin
 ELF     := $(NAME).elf
-objects := $(patsubst %.c, %.o, $(wildcard *.c)) boot.o
 libs	:= lib/libstd.a
 
-all: $(BIN)
+all: build
 
-$(BIN): $(ELF)
-	objcopy -O binary $< $@
-
-$(ELF): $(objects) $(libs)
-	ld -T linker.ld -nostdlib -static $(objects) $(libs) -o $@
-
-$(libs): just_run
+build:
+	make -C init build
 	make -C lib build
-
-just_run:
-	@echo
-
-%.o: %.c
-	$(CC) $(CFLAGS) $< -o $@
-
-%.o: %.S
-	$(CC) $(CFLAGS) $< -o $@
+	ld -T linker.ld -nostdlib -static init/boot.o init/main.o $(libs) -o $(ELF)
+	objcopy -O binary $(ELF) $(BIN)
 
 clean:
 	-make -C lib/ clean
