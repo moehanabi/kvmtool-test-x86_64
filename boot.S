@@ -24,6 +24,12 @@ fill_noop_idt:
 	add	$4, %di
 	loop	fill_noop_idt
 
+real_mode_ok:
+	mov	$0x3f8,%dx
+	cs lea	real_mode_msg, %si
+	mov	$(real_mode_msg_end-real_mode_msg), %cx
+	cs rep/outsb
+
 seta20.1:
 	inb	$0x64,%al
 	testb	$0x2,%al
@@ -63,12 +69,6 @@ start32:
 	movl	$_start, %esp
 	call	main
 
-test_ok:
-	mov	$0x3f8,%dx
-	cs lea	msg2, %si
-	mov	$(msg2_end-msg2), %cx
-	cs rep/outsb
-
 reboot:
 	/* Reboot by using the i8042 reboot line */
 	mov	$0xfe, %al
@@ -80,10 +80,6 @@ loop:
 
 noop_handler:
 	iretw
-
-msg2:
-	.asciz "\nTest OK\n"
-msg2_end:
 
 // Check for SSE and enable it. If it's not supported, reboot
 set_up_SSE:
@@ -104,9 +100,13 @@ set_up_SSE:
 	movl	%eax, %cr4
 	ret
 
-	// Global Descriptor Table
 	.section .rodata
 	.align	4
+real_mode_msg:
+	.asciz "\nIn Real Mode\n"
+real_mode_msg_end:
+
+// Global Descriptor Table
 gdt32:
 	SEG_NULLASM	# null seg
 	SEG_ASM(STA_X|STA_R, 0x0, 0xffffffff)	# code seg

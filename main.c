@@ -1,5 +1,5 @@
 #include <stdio.h>
 
 int main(){
-    kprintf("hello world\n");
+    kprintf("In Protected Mode\n");
 }
