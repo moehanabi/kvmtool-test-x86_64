@@ -14,6 +14,7 @@ build:
 	objcopy -O binary $(ELF) $(BIN)
 
 clean:
+	-make -C init/ clean
 	-make -C lib/ clean
 	rm -f $(BIN) $(ELF) $(objects)
 
