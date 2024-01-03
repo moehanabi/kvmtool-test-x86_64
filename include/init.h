@@ -1,3 +1,4 @@
+#ifdef __ASSEMBLER__
 .altmacro
 
 .macro FILL_NOOP_IDT
@@ -93,3 +94,91 @@ LOCAL inf_loop
 inf_loop:
 	jmp	inf_loop
 .endm
+
+#endif
+
+#ifndef __ASSEMBLER__
+#include <stdio.h>
+#include <mmu.h>
+static inline int check_long_mode_support() {
+	int eax, edx, max;
+
+	/* check maximum extended function number */
+	__asm__ __volatile__ (
+		"mov $0x80000000, %%eax\n\t"
+		"cpuid\n\t"
+		: "=a"(max)
+		: 
+		: "bx", "cx", "dx"
+	);
+	if (max < 0x80000001) {
+		kprintf("Extended function not supported. Can not enter long mode.\n");
+		return 0;
+	}
+
+	/* check long mode support (the 29th bit in EDX) */
+	__asm__ __volatile__ (
+		"mov $0x80000001, %%eax\n\t"
+		"cpuid\n\t"
+		: "=a"(eax), "=d"(edx)
+		:
+		: "cc"
+	);
+	return edx & (1 << 29);
+}
+
+static inline void init_paging_entries(uint64_t* p4_table, uint64_t* p3_table, uint64_t* p2_table) {
+	uint64_t flag = PTE_P | PTE_W;	// present + writable
+	uint64_t flag_huge = PTE_PS | PTE_P | PTE_W;	// huge + present + writable
+	p4_table[511] = ((uint64_t)p4_table) | flag;
+	p4_table[0] = ((uint64_t)p3_table) | flag;
+	p3_table[0] = ((uint64_t)p2_table) | flag;
+
+	// Map every P2 entry to a 2MiB huge page
+	for(int i = 0; i < 512; i++) {
+		p2_table[i] = (i * 0x200000) | flag_huge;
+	}
+}
+
+#define ENABLE_LONG_IN_EFER(void) ({\
+	__asm__ __volatile__ (\
+		"mov $0xC0000080, %%ecx\n\t" \
+		"rdmsr\n\t" \
+		"orl $1 << 8, %%eax\n\t" \
+		"wrmsr\n\t" \
+		: \
+		: \
+		: "eax", "ecx", "edx" \
+	);\
+})
+
+#define READ_CRx(_x) ({\
+	uint64_t _cr;\
+	__asm__ __volatile__ (\
+		"mov %%cr" #_x ", %0"\
+		: "=r"(_cr)\
+	);\
+	_cr;\
+})
+
+#define WRITE_CRx(_x, _value) do {\
+	__asm__ __volatile__ (\
+		"mov %0, %%cr" #_x ""\
+		:\
+		: "r"(_value)\
+	);\
+} while(0)
+
+#define SWITCH_TO_LONG_MODE(_p4_table_ptr) do { \
+	uint64_t _cr0,\
+			 _cr4;\
+	WRITE_CRx(3, (uint64_t)_p4_table_ptr);\
+	_cr4 = READ_CRx(4);\
+	_cr4 |= CR4_PAE;\
+	WRITE_CRx(4, _cr4);\
+	ENABLE_LONG_IN_EFER();\
+	_cr0 = READ_CRx(0);\
+	_cr0 |= CR0_PG;\
+	WRITE_CRx(0, _cr0);\
+} while(0)
+#endif

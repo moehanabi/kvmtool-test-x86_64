@@ -60,3 +60,16 @@ gdt64_pointer:
 	.set	gdt64_limit, gdt64_pointer - gdt64 - 1
 	.word	gdt64_limit
 	.quad	gdt64
+
+	.section .bss
+	.globl p4_table, p3_table, p2_table, stack_bottom, stack_top
+	.align 4096
+p4_table:
+	.skip 4096
+p3_table:
+	.skip 4096
+p2_table:
+	.skip 4096
+stack_bottom:
+	.skip 4096 * 2
+stack_top:
