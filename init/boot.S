@@ -21,7 +21,7 @@ _start:
 	START32
 	SETUP_SSE
 	# Set up the stack pointer and call into C.
-	movl	$_start, %esp
+	movl	$stack_top, %esp
 	call	main
 	REBOOT
 	JUST_LOOP
