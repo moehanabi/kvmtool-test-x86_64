@@ -19,10 +19,24 @@ _start:
 
 .code32	# Tell assembler to generate 32-bit code now.
 	START32
+	PRINT protect_mode_msg, protect_mode_msg_end
 	SETUP_SSE
-	# Set up the stack pointer and call into C.
+
 	movl	$stack_top, %esp
-	call	main
+	CHECK_LONG_MODE
+	SET_PAGE_TABLE
+	ENABLE_PAGING $p4_table
+
+	// Load the 64-bit GDT
+	lgdt	(gdt64_pointer)
+
+	// Update selectors
+	movw	$gdt64_data_seg, %ax
+	movw	%ax, %ss
+	movw	%ax, %ds
+	movw	%ax, %es
+
+	ljmp	$gdt64_code_seg, $main
 	REBOOT
 	JUST_LOOP
 
@@ -34,6 +48,14 @@ noop_handler:
 real_mode_msg:
 	.asciz "\nIn Real Mode\n"
 real_mode_msg_end:
+
+protect_mode_msg:
+	.asciz "In Protected Mode\n"
+protect_mode_msg_end:
+
+long_mode_err_msg:
+	.asciz "Long mode not supported\n"
+long_mode_err_msg_end:
 
 // Global Descriptor Table
 gdt32:
@@ -62,7 +84,6 @@ gdt64_pointer:
 	.quad	gdt64
 
 	.section .bss
-	.globl p4_table, p3_table, p2_table, stack_bottom, stack_top
 	.align 4096
 p4_table:
 	.skip 4096

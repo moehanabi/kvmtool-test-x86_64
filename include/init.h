@@ -1,4 +1,3 @@
-#ifdef __ASSEMBLER__
 .altmacro
 
 .macro FILL_NOOP_IDT
@@ -95,90 +94,75 @@ inf_loop:
 	jmp	inf_loop
 .endm
 
-#endif
+.macro CHECK_LONG_MODE
+LOCAL no_long_mode, long_mode_ready
+	movl	$0x80000000, %eax	// Set the A-register to 0x80000000
+	cpuid				// CPU identification
+	cmp	$0x80000001, %eax	// Compare A-register with 0x80000001
+	jb	no_long_mode		// It is less, there is no long mode
+	movl	$0x80000001, %eax	// Set the A-register to 0x80000001
+	cpuid				// CPU identification
+	test	$1 << 29, %edx		// Test if the LM-bit, which is bit
+					//   29, is set in the D-register
+	jz	no_long_mode		// They aren't, there is no long mode
+	jmp	long_mode_ready
+no_long_mode:
+	PRINT long_mode_err_msg, long_mode_err_msg_end
+	REBOOT
+long_mode_ready:
+.endm
 
-#ifndef __ASSEMBLER__
-#include <stdio.h>
-#include <mmu.h>
-static inline int check_long_mode_support() {
-	int eax, edx, max;
+.macro SET_PAGE_TABLE
+LOCAL map_p2_table
+	// Recursive map P4
+	mov	$p4_table, %eax
+	orl	$0b11, %eax		// present + writable
+	movl	%eax, (p4_table + 511 * 8)
 
-	/* check maximum extended function number */
-	__asm__ __volatile__ (
-		"mov $0x80000000, %%eax\n\t"
-		"cpuid\n\t"
-		: "=a"(max)
-		: 
-		: "bx", "cx", "dx"
-	);
-	if (max < 0x80000001) {
-		kprintf("Extended function not supported. Can not enter long mode.\n");
-		return 0;
-	}
+	// Map first P4 entry to P3 table
+	movl	$p3_table, %eax
+	orl	$0b11, %eax		// present + writable
+	movl	%eax, (p4_table)
 
-	/* check long mode support (the 29th bit in EDX) */
-	__asm__ __volatile__ (
-		"mov $0x80000001, %%eax\n\t"
-		"cpuid\n\t"
-		: "=a"(eax), "=d"(edx)
-		:
-		: "cc"
-	);
-	return edx & (1 << 29);
-}
+	// Map first P3 entry to P2 table
+	movl	$p2_table, %eax
+	orl	$0b11, %eax		// present + writable
+	mov	%eax, (p3_table)
 
-static inline void init_paging_entries(uint64_t* p4_table, uint64_t* p3_table, uint64_t* p2_table) {
-	uint64_t flag = PTE_P | PTE_W;	// present + writable
-	uint64_t flag_huge = PTE_PS | PTE_P | PTE_W;	// huge + present + writable
-	p4_table[511] = ((uint64_t)p4_table) | flag;
-	p4_table[0] = ((uint64_t)p3_table) | flag;
-	p3_table[0] = ((uint64_t)p2_table) | flag;
+	// Map each P2 entry to a huge 2MiB page
+	movl	$0, %ecx		// counter variable
+map_p2_table:
+	// Map ecx-th P2 entry to a huge page that starts at address
+	// (2MiB * ecx)
+	movl	$0x200000, %eax		// 2MiB
+	mul	%ecx			// start address of ecx-th page
+	orl	$0b10000011, %eax	// present + writable + huge
+	movl	%eax, p2_table(,%ecx,8) // map ecx-th entry
 
-	// Map every P2 entry to a 2MiB huge page
-	for(int i = 0; i < 512; i++) {
-		p2_table[i] = (i * 0x200000) | flag_huge;
-	}
-}
+	inc	%ecx			// increase counter
+	cmp	$512, %ecx		// if counter == 512, the
+					//   whole P2 table is mapped
+	jne	map_p2_table		// else map the next entry
+.endm
 
-#define ENABLE_LONG_IN_EFER(void) ({\
-	__asm__ __volatile__ (\
-		"mov $0xC0000080, %%ecx\n\t" \
-		"rdmsr\n\t" \
-		"orl $1 << 8, %%eax\n\t" \
-		"wrmsr\n\t" \
-		: \
-		: \
-		: "eax", "ecx", "edx" \
-	);\
-})
+.macro ENABLE_PAGING pgtbl
+	// Load P4 to cr3 register (cpu uses this to access the P4 table)
+	movl	pgtbl, %eax
+	movl	%eax, %cr3
 
-#define READ_CRx(_x) ({\
-	uint64_t _cr;\
-	__asm__ __volatile__ (\
-		"mov %%cr" #_x ", %0"\
-		: "=r"(_cr)\
-	);\
-	_cr;\
-})
+	// Enable PAE-flag in cr4 (Physical Address Extension)
+	movl	%cr4, %eax
+	orl	$1 << 5, %eax
+	mov	%eax, %cr4
 
-#define WRITE_CRx(_x, _value) do {\
-	__asm__ __volatile__ (\
-		"mov %0, %%cr" #_x ""\
-		:\
-		: "r"(_value)\
-	);\
-} while(0)
+	// Set the long mode bit in the EFER MSR (model specific register)
+	mov	$0xC0000080, %ecx
+	rdmsr
+	orl	$1 << 8, %eax
+	wrmsr
 
-#define SWITCH_TO_LONG_MODE(_p4_table_ptr) do { \
-	uint64_t _cr0,\
-			 _cr4;\
-	WRITE_CRx(3, (uint64_t)_p4_table_ptr);\
-	_cr4 = READ_CRx(4);\
-	_cr4 |= CR4_PAE;\
-	WRITE_CRx(4, _cr4);\
-	ENABLE_LONG_IN_EFER();\
-	_cr0 = READ_CRx(0);\
-	_cr0 |= CR0_PG;\
-	WRITE_CRx(0, _cr0);\
-} while(0)
-#endif
+	// Enable paging in the cr0 register
+	movl	%cr0, %eax
+	orl	$1 << 31, %eax
+	mov	%eax, %cr0
+.endm
