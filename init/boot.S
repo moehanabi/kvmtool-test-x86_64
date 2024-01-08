@@ -7,42 +7,6 @@
 #define TIMER_FREQ	1193182
 #define TIMER_DIV(x)	((TIMER_FREQ+(x)/2)/(x))
 
-	.code16gcc
-	.section .text.entry
-	.globl	_start
-	.type	_start, @function
-_start:
-	FILL_NOOP_IDT
-	PRINT real_mode_msg, real_mode_msg_end
-	SETA20
-	PROTECT_MODE
-
-.code32	# Tell assembler to generate 32-bit code now.
-	START32
-	PRINT protect_mode_msg, protect_mode_msg_end
-	SETUP_SSE
-
-	movl	$stack_top, %esp
-	CHECK_LONG_MODE
-	SET_PAGE_TABLE
-	ENABLE_PAGING $p4_table
-
-	// Load the 64-bit GDT
-	lgdt	(gdt64_pointer)
-
-	// Update selectors
-	movw	$gdt64_data_seg, %ax
-	movw	%ax, %ss
-	movw	%ax, %ds
-	movw	%ax, %es
-
-	ljmp	$gdt64_code_seg, $main
-	REBOOT
-	JUST_LOOP
-
-noop_handler:
-	iretw
-
 	.section .rodata
 	.align	4
 real_mode_msg:
@@ -82,6 +46,42 @@ gdt64_pointer:
 	.set	gdt64_limit, gdt64_pointer - gdt64 - 1
 	.word	gdt64_limit
 	.quad	gdt64
+
+	.code16gcc
+	.section .text.entry
+	.globl	_start
+	.type	_start, @function
+_start:
+	FILL_NOOP_IDT
+	PRINT real_mode_msg, real_mode_msg_end
+	SETA20
+	PROTECT_MODE
+
+.code32	# Tell assembler to generate 32-bit code now.
+	START32
+	PRINT protect_mode_msg, protect_mode_msg_end
+	SETUP_SSE
+
+	movl	$stack_top, %esp
+	CHECK_LONG_MODE
+	SET_PAGE_TABLE
+	ENABLE_PAGING $p4_table
+
+	// Load the 64-bit GDT
+	lgdt	(gdt64_pointer)
+
+	// Update selectors
+	movw	$gdt64_data_seg, %ax
+	movw	%ax, %ss
+	movw	%ax, %ds
+	movw	%ax, %es
+
+	ljmp	$gdt64_code_seg, $main
+	REBOOT
+	JUST_LOOP
+
+noop_handler:
+	iretw
 
 	.section .bss
 	.align 4096
