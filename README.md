@@ -18,7 +18,7 @@ index 6383b714..ab35648d 100644
 -#define BOOT_LOADER_SELECTOR   0x1000
 -#define BOOT_LOADER_IP         0x0000
 +#define BOOT_LOADER_SELECTOR   0x0000
-+#define BOOT_LOADER_IP         0x7c00
++#define BOOT_LOADER_IP         0x0600
  #define BOOT_LOADER_SP         0x8000
  #define BOOT_CMDLINE_OFFSET    0x20000
 ```

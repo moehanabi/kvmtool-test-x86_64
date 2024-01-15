@@ -1,8 +1,8 @@
 ENTRY(_start)
 
 SECTIONS {
-  /* Start at 0x7c00 */
-  . = 0x7c00;
+  /* Start at 0x0600 */
+  . = 0x0600;
 
   /* Text */
   .text : {
