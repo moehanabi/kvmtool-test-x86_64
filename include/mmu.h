@@ -101,6 +101,9 @@ struct segdesc {
 #define STS_CG32    0xC     // 32-bit Call Gate
 #define STS_IG32    0xE     // 32-bit Interrupt Gate
 #define STS_TG32    0xF     // 32-bit Trap Gate
+#define STS_T64A    0x9     // Available 64-bit TSS
+#define STS_IG64    0xE     // 64-bit Interrupt Gate
+#define STS_TG64    0xF     // 64-bit Trap Gate
 
 // A virtual address 'la' has a three-part structure as follows:
 //
@@ -190,20 +193,23 @@ struct taskstate {
   uint16_t iomb;       // I/O map base address
 };
 
-// PAGEBREAK: 12
-// Gate descriptors for interrupts and traps
+// 64-bit IDT gate descriptors for interrupts and traps
+// The size is 16 bytes in x86-64, although it was 8 bytes in x86.
+// ref. Intel SDM vol.3 Figure 6-8
 struct gatedesc {
-  uint32_t off_15_0 : 16;   // low 16 bits of offset in segment
-  uint32_t cs : 16;         // code segment selector
-  uint32_t args : 5;        // # args, 0 for interrupt/trap gates
-  uint32_t rsv1 : 3;        // reserved(should be zero I guess)
-  uint32_t type : 4;        // type(STS_{TG,IG32,TG32})
-  uint32_t s : 1;           // must be 0 (system)
-  uint32_t dpl : 2;         // descriptor(meaning new) privilege level
-  uint32_t p : 1;           // Present
-  uint32_t off_31_16 : 16;  // high bits of offset in segment
+  uint32_t off_15_0 : 16;  // low 16 bits of offset in segment
+  uint32_t cs : 16;        // code segment selector
+  uint32_t ist : 3;        // interrupt stack table index
+  uint32_t args : 2;       // # args, 0 for interrupt/trap gates
+  uint32_t rsv1 : 3;       // reserved(should be zero I guess)
+  uint32_t type : 4;       // type(STS_{IG32,TG32})
+  uint32_t s : 1;          // must be 0 (system)
+  uint32_t dpl : 2;        // descriptor(meaning new) privilege level
+  uint32_t p : 1;          // Present
+  uint32_t off_31_16 : 16; // middle bits of offset in segment
+  uint32_t off_63_32;      // high bits of offset in segment
+  uint32_t padding1;
 };
-
 // Set up a normal interrupt/trap gate descriptor.
 // - istrap: 1 for a trap (= exception) gate, 0 for an interrupt gate.
 //   interrupt gate clears FL_IF, trap gate leaves FL_IF alone
@@ -214,15 +220,17 @@ struct gatedesc {
 //        this interrupt/trap gate explicitly using an int instruction.
 #define SETGATE(gate, istrap, sel, off, d)                \
 {                                                         \
-  (gate).off_15_0 = (uint32_t)(off) & 0xffff;                \
+  (gate).off_15_0 = (uint32_t)((off)&0xffff);             \
   (gate).cs = (sel);                                      \
+  (gate).ist = 0;                                         \
   (gate).args = 0;                                        \
   (gate).rsv1 = 0;                                        \
-  (gate).type = (istrap) ? STS_TG32 : STS_IG32;           \
+  (gate).type = (istrap) ? STS_TG64 : STS_IG64;           \
   (gate).s = 0;                                           \
   (gate).dpl = (d);                                       \
   (gate).p = 1;                                           \
-  (gate).off_31_16 = (uint32_t)(off) >> 16;                  \
+  (gate).off_31_16 = (uint32_t)((((off) >> 16) & 0xffff));\
+  (gate).off_63_32 = (uint32_t)(((off) >> 32));           \
+  (gate).padding1 = 0;                                    \
 }
-
 #endif

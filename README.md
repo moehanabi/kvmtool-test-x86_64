@@ -58,6 +58,7 @@ You can also use `kvm__dump_mem()` to view memory content.
 Inspired by the following projects:
 
 - [xv6](https://github.com/mit-pdos/xv6-public)
+- [xv6-x86_64](https://github.com/tiqwab/xv6-x86_64)
 - [hello-x86_64](https://github.com/fwmiller/hello-x86_64)
 - [KVM-Unit-Tests](https://gitlab.com/kvm-unit-tests/kvm-unit-tests/)
 - [kvmtool](https://github.com/kvmtool/kvmtool)
